@@ -11,11 +11,13 @@ import model.User;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import util.HttpRequestUtils;
+import util.IOUtils;
 
 public class RequestHandler extends Thread {
     private static final Logger log = LoggerFactory.getLogger(RequestHandler.class);
 
-    private Socket connection;
+    private final Socket connection;
+    private int contentLength = 0;
 
     public RequestHandler(Socket connectionSocket) {
         this.connection = connectionSocket;
@@ -32,15 +34,18 @@ public class RequestHandler extends Thread {
             String requestPath = getRequestPath(line);
             log.debug("line : {}, request page : {}", line, requestPath);
             String requestResource = getRequestResource(requestPath);
-            Map<String, String> requestParameters = getRequestParameters(requestPath);
 
             while (!line.equals("")) {
                 line = br.readLine();
+                parseContentLength(line);
                 log.debug("line: {}", line);
             }
+
             if (requestResource.equals("/user/create")) {
-                User createdUser = User.from(requestParameters);
+                Map<String, String> body = getRequestBody(br, contentLength);
+                User createdUser = User.from(body);
                 log.info("create user: {}", createdUser);
+                requestPath = "/index.html";
             }
             DataOutputStream dos = new DataOutputStream(out);
             byte[] body = Files.readAllBytes(new File("./webapp" + requestPath).toPath());
@@ -48,6 +53,16 @@ public class RequestHandler extends Thread {
             responseBody(dos, body);
         } catch (IOException e) {
             log.error(e.getMessage());
+        }
+    }
+
+    private Map<String, String> getRequestBody(BufferedReader br, int contentLength) throws IOException {
+        return HttpRequestUtils.parseQueryString(IOUtils.readData(br, contentLength));
+    }
+
+    private void parseContentLength(String line) {
+        if (line.contains("Content-Length")) {
+            contentLength = Integer.parseInt(line.split(":")[1].trim());
         }
     }
 
