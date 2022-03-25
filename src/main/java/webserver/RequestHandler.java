@@ -1,17 +1,19 @@
 package webserver;
 
-import java.io.*;
-import java.net.Socket;
-import java.nio.file.Files;
-import java.util.Collections;
-import java.util.Map;
-
 import com.google.common.base.Charsets;
 import model.User;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import util.HttpRequestUtils;
 import util.IOUtils;
+
+import java.io.*;
+import java.net.Socket;
+import java.nio.file.Files;
+import java.util.Collections;
+import java.util.Map;
+
+import static java.lang.String.format;
 
 public class RequestHandler extends Thread {
     private static final Logger log = LoggerFactory.getLogger(RequestHandler.class);
@@ -41,13 +43,17 @@ public class RequestHandler extends Thread {
                 log.debug("line: {}", line);
             }
 
+            DataOutputStream dos = new DataOutputStream(out);
+
             if (requestResource.equals("/user/create")) {
                 Map<String, String> body = getRequestBody(br, contentLength);
                 User createdUser = User.from(body);
                 log.info("create user: {}", createdUser);
-                requestPath = "/index.html";
+                response302Header(dos, "/index.html");
+                dos.flush();
+                return;
             }
-            DataOutputStream dos = new DataOutputStream(out);
+
             byte[] body = Files.readAllBytes(new File("./webapp" + requestPath).toPath());
             response200Header(dos, body.length);
             responseBody(dos, body);
@@ -80,6 +86,16 @@ public class RequestHandler extends Thread {
 
     private String getRequestPath(String line) {
         return line.split("\\s")[1];
+    }
+
+    private void response302Header(DataOutputStream dos, String redirectPath) {
+        try {
+            dos.writeBytes("HTTP/1.1 302 Found \r\n");
+            dos.writeBytes(format("Location: %s\r\n", redirectPath));
+            dos.writeBytes("\r\n");
+        } catch (IOException e) {
+            log.error(e.getMessage());
+        }
     }
 
     private void response200Header(DataOutputStream dos, int lengthOfBodyContent) {
