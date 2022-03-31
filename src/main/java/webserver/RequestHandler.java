@@ -1,6 +1,7 @@
 package webserver;
 
 import com.google.common.base.Charsets;
+import db.DataBase;
 import model.User;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -12,6 +13,7 @@ import java.net.Socket;
 import java.nio.file.Files;
 import java.util.Collections;
 import java.util.Map;
+import java.util.Objects;
 
 import static java.lang.String.format;
 
@@ -48,15 +50,36 @@ public class RequestHandler extends Thread {
             if (requestResource.equals("/user/create")) {
                 Map<String, String> body = getRequestBody(br, contentLength);
                 User createdUser = User.from(body);
+                DataBase.addUser(createdUser);
                 log.info("create user: {}", createdUser);
                 response302Header(dos, "/index.html");
                 dos.flush();
                 return;
             }
+            if (requestResource.equals("/user/login")) {
+                Map<String, String> body = getRequestBody(br, contentLength);
+                User user = DataBase.findUserById(body.get("userId"));
+                if (Objects.isNull(user) || !user.getPassword().equals(body.get("password"))) {
+                    requestPath = "/user/login_failed.html";
+                } else {
+                    response302WithLoginSuccess(dos, "/index.html");
+                }
+            }
 
             byte[] body = Files.readAllBytes(new File("./webapp" + requestPath).toPath());
             response200Header(dos, body.length);
             responseBody(dos, body);
+        } catch (IOException e) {
+            log.error(e.getMessage());
+        }
+    }
+
+    private void response302WithLoginSuccess(DataOutputStream dos, String redirectPath) {
+        try {
+            dos.writeBytes("HTTP/1.1 302 Found \r\n");
+            dos.writeBytes("Set-Cookie: logined=true\r\n");
+            dos.writeBytes(format("Location: %s\r\n", redirectPath));
+            dos.writeBytes("\r\n");
         } catch (IOException e) {
             log.error(e.getMessage());
         }
