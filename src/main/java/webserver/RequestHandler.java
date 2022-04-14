@@ -14,7 +14,6 @@ import java.nio.file.Files;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Map;
-import java.util.Objects;
 
 import static java.lang.String.format;
 
@@ -62,13 +61,7 @@ public class RequestHandler extends Thread {
                 return;
             }
             if (requestResource.equals("/user/login")) {
-                Map<String, String> body = getRequestBody(br, contentLength);
-                User user = DataBase.findUserById(body.get("userId"));
-                if (Objects.isNull(user) || !user.getPassword().equals(body.get("password"))) {
-                    requestPath = "/user/login_failed.html";
-                } else {
-                    response302WithLoginSuccess(dos, "/index.html");
-                }
+
             }
             if (requestResource.equals("/user/list")) {
                 if (!logined) {
